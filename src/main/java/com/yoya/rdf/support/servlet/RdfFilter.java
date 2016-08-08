@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.google.common.io.ByteStreams;
 import com.yoya.config.IConfig;
+import com.yoya.config.impl.H2Config;
 import com.yoya.config.impl.MysqlConfig;
 import com.yoya.rdf.Rdf;
 import com.yoya.rdf.log.ILog;
@@ -73,30 +74,36 @@ public class RdfFilter implements Filter{
 		// 预设允许开发人员配置的系统参数
 		String configImpl = filterConfig.getInitParameter( "configImpl" );
 		if( null == configImpl || 0 == ( configImpl = configImpl.trim() ).length() ){ throw new RuntimeException( "configImpl参数必须正确设置！" ); }
+
+		String jdbcUrl = filterConfig.getInitParameter( "url" );
+		String jdbcUser = filterConfig.getInitParameter( "user" );
+		String jdbcPassword = filterConfig.getInitParameter( "password" );
+		String profileName = filterConfig.getInitParameter( "profileName" );
+		String tablePrefix = filterConfig.getInitParameter( "tablePrefix" );
+		if( null == profileName || 0 == ( profileName = profileName.trim() ).length() ){
+			profileName = null;
+		}
+		if( null == tablePrefix || 0 == ( tablePrefix = tablePrefix.trim() ).length() ){
+			tablePrefix = null;
+		}
+		IConfig configObj = null;
 		if( "MysqlConfig".equals( configImpl ) ){
-			String jdbcUrl = filterConfig.getInitParameter( "url" );
-			String jdbcUser = filterConfig.getInitParameter( "user" );
-			String jdbcPassword = filterConfig.getInitParameter( "password" );
-			String profileName = filterConfig.getInitParameter( "profileName" );
-			String tablePrefix = filterConfig.getInitParameter( "tablePrefix" );
-			if( null == profileName || 0 == ( profileName = profileName.trim() ).length() ){
-				profileName = null;
-			}
-			if( null == tablePrefix || 0 == ( tablePrefix = tablePrefix.trim() ).length() ){
-				tablePrefix = null;
-			}
 
-			IConfig configObj = new MysqlConfig( jdbcUrl, jdbcUser, jdbcPassword, profileName, tablePrefix );
-			// 调用框架初始化动作。
-			Rdf.me().init( configObj );
-			_LOG.info( "mysqlConfig url:".concat( jdbcUrl ) );
-			_LOG.info( "mysqlConfig data:" + configObj );
+			configObj = new MysqlConfig( jdbcUrl, jdbcUser, jdbcPassword, profileName, tablePrefix );
 
-			// 检查启动服务。
-			Service.impl().start();
+		}else if( "H2Config".equals( configImpl ) ){
+			configObj = new H2Config( jdbcUrl, jdbcUser, jdbcPassword, profileName, tablePrefix );
 		}else{
 			throw new RuntimeException( "unsupport configImpl:".concat( configImpl ) );
 		}
+
+		// 调用框架初始化动作。
+		Rdf.me().init( configObj );
+		_LOG.info( "config url:".concat( jdbcUrl ) );
+		_LOG.info( "config data:" + configObj );
+
+		// 检查启动服务。
+		Service.impl().start();
 
 		// 如果将框架当作插件使用与其它框架进行集成时，由于拦截的不是根路径，所以需要计算路由时需要跳过的字符长度。
 		// 此处暂时未做自动发现拦截路径的逻辑，所以暂由开发人员手工配置需要跳过的字符长度。
